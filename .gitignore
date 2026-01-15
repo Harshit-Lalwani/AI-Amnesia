@@ -1,0 +1,12 @@
+/.venv
+/fdm_solver.py
+/fdm_traveling_wave.npz
+/problemStatement.md
+/roadmap.md
+/GRAPH_SUGGESTIONS.md
+/GRAPHS_ADDED_SUMMARY.md
+/test.tex
+/test.pdf
+/test.out
+/test.log
+/test.aux
