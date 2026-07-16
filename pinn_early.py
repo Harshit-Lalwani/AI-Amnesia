@@ -16,6 +16,7 @@ Key features from paper:
 - Retraining: 20,000 + 20,000 iterations with lr=1e-4
 """
 
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -634,7 +635,8 @@ def main():
         print(f"  Reason: Optimizer reset + lower learning rate")
     
     # Plot training history
-    pinn.plot_training_history(save_path='pinn_training_history.png')
+    os.makedirs('results/1d', exist_ok=True)
+    pinn.plot_training_history(save_path='results/1d/pinn_training_history.png')
     
     # Save results summary
     results = {

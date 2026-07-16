@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import time
 from tqdm import tqdm
@@ -109,7 +110,8 @@ if __name__ == '__main__':
     y_flat = Y_mesh.flatten().reshape(-1, 1)
     t_flat = np.full_like(x_flat, final_time)
 
-    save_path = 'fdm_solution_2d.npz'
+    save_path = 'results/2d/fdm_solution_2d.npz'
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     np.savez(
         save_path,
         u_exact=u_flat,

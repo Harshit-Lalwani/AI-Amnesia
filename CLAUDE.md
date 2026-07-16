@@ -4,12 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-"Healing AI Amnesia in Physics-Informed Neural Networks" — a Physics-Informed Neural Network (PINN)
-study of the Fisher-KPP reaction-diffusion PDE (`u_t = D u_xx + R u(1-u)`), replicating and extending
-Aberqi & Miloudi, arXiv:2601.11406v1 (present in this repo as `2601.11406v1.pdf`). The core question:
-does preserving the Adam optimizer's internal state across fine-tuning phases (vs. resetting it) improve
-convergence and final accuracy when a trained PINN is retrained? There are two experiment tracks (1D and
-2D Fisher-KPP), each run in both a "reset optimizer" and a "preserve optimizer state" variant.
+"Healing AI Amnesia in Physics-Informed Neural Networks" — a fix for a PINN retraining bug: resetting
+the Adam optimizer's internal state at each retraining phase boundary (the common default, and the
+protocol used by Aberqi & Miloudi, arXiv:2601.11406v1, present in this repo as `2601.11406v1.pdf`)
+silently degrades accuracy with every retraining pass. Preserving optimizer state across phases instead
+fixes this — see `README.md` / `docs/Report.pdf` for the quantified result (a 47.6% final-error
+reduction on the paper's 1D Fisher-KPP problem, `u_t = D u_xx + R u(1-u)`, plus an original 2D
+extension). There are two experiment tracks (1D and 2D Fisher-KPP), each run in both a "reset optimizer"
+and a "preserve optimizer state" variant.
 
 ## Running the code
 
@@ -19,25 +21,31 @@ standalone scripts and Jupyter notebooks. Dependencies (verify with `pip show`) 
 
 - `python pinn.py` — the primary, most complete 1D experiment. Self-contained: on import it generates
   `data_samples.npz`, trains in three phases, benchmarks against FDM, prints a paper-comparison summary
-  table, and writes `pinn_training_history.png` / `pinn_results.npz` / `pinn_initial.pth` / `pinn_final.pth`.
-  Takes several minutes (50k+ Adam iterations total). There is no CLI/argparse — change behavior by
-  editing constants/calls at module level (e.g. the `iterations=`, `learning_rate=` args to the three
-  `pinn.train_pinn(...)` calls near the bottom of the file).
+  table, and writes `results/1d/pinn_training_history.png` / `pinn_results.npz` / `pinn_initial.pth` /
+  `pinn_final.pth`. Takes several minutes (50k+ Adam iterations total). There is no CLI/argparse — change
+  behavior by editing constants/calls at module level (e.g. the `iterations=`, `learning_rate=` args to
+  the three `pinn.train_pinn(...)` calls near the bottom of the file).
 - `python pinn_early.py` — earlier/legacy version of the same 1D experiment, wrapped in `main()`; kept as
-  a simpler reference, not actively developed.
+  a simpler reference, not actively developed. Writes `results/1d/pinn_training_history.png`.
 - `python exact_solution.py` — analytical traveling-wave reference solution (`ExactSolution` class); has
   its own `main()` for standalone sanity-checking/plotting.
 - `python 2d_pinn/dataset_generation_2d.py` then the 2D notebooks (`2d_pinn/2d_pinn.ipynb`,
   `2d_pinn/2d_pinn_without_memory.ipynb`) — the 2D track. Notebooks are the primary artifact here (not
-  scripts); run them cell-by-cell in Jupyter.
-- `python fdm_solver_2d.py` — explicit finite-difference baseline for the 2D problem.
+  scripts); run them cell-by-cell in Jupyter. They write checkpoints to `checkpoints/2d/` and results
+  (single-run plots/npz, per-sweep-configuration plots) to `results/2d/`.
+- `python fdm_solver_2d.py` — explicit finite-difference baseline for the 2D problem; writes
+  `results/2d/fdm_solution_2d.npz`.
 - `memoryAwarePINN/modiified_pinn.ipynb` — the "preserves Adam state across phases" variant of the 1D
   experiment, compared against `pinn_early.ipynb` (which matches the paper's reset-each-phase protocol).
+  Writes `results/1d/training_history_lbfgs.png`.
 - `generate_2d_plots.py`, `generate_comparison_plots.py` — post-hoc plotting scripts that read sweep CSVs
-  (`sweep_results_2d_32.csv`, `memoryAwarePINN/sweep_results_32.csv`) and single-run `.npz` results to
-  produce publication figures. **Both hard-code an absolute output path from another machine**
-  (`/home/sparsh-bhartia/Documents/mlns/project/MLNS_Project/...`) — update `output_dir` at the top of
-  each file before running them in this environment.
+  (`results/2d/sweep/sweep_results_2d_32.csv`, `memoryAwarePINN/sweep_results_32.csv`) and single-run
+  `.npz` results (`results/2d/pinn_results_single_2d.npz`, `results/2d/fdm_solution_2d.npz`) to produce
+  publication figures into `figures_2d/` and `figures_comparison/`. Paths are resolved relative to
+  `Path(__file__).parent`, so these run correctly regardless of the working directory.
+- `python generate_summary_figures.py` — builds the two headline bar charts embedded in `README.md`
+  (`figures_summary/`) from the already-verified result numbers; does not read any data files, only
+  hardcoded numbers transcribed from the sweep CSVs and notebook outputs.
 
 ## Architecture
 
@@ -80,12 +88,13 @@ notebooks)
 
 ### Sweeps
 
-`sweep_results_2d_32.csv` and `memoryAwarePINN/sweep_results_32.csv` hold results from architecture/LR-
-schedule sweeps (e.g. `7x50` vs `6x100`, combinations of cosine/linear/exponential/exponential_delayed
-schedules for Phase 1 vs Phase 2), named after the `l2_<dim>_tanh__<arch>__<phase1>_<phase2>_lbfgs.png`
-plot files scattered at the repo root and in `2d_pinn/`. `generate_2d_plots.py` and
-`generate_comparison_plots.py` consume these CSVs; there is no script that regenerates the CSVs
-themselves in this repo — they come from the sweep runs performed in the notebooks.
+`results/2d/sweep/sweep_results_2d_32.csv` and `memoryAwarePINN/sweep_results_32.csv` hold results from
+architecture/LR-schedule sweeps (e.g. `7x50` vs `6x100`, combinations of
+cosine/linear/exponential/exponential_delayed schedules for Phase 1 vs Phase 2), named after the
+`l2_<dim>_tanh__<arch>__<phase1>_<phase2>_lbfgs.png` plot files in `results/2d/sweep/runs/` and
+`2d_pinn/`. `generate_2d_plots.py` and `generate_comparison_plots.py` consume these CSVs; there is no
+script that regenerates the CSVs themselves in this repo — they come from the sweep runs performed in
+the notebooks.
 
 ## Key numeric conventions to preserve when editing training code
 

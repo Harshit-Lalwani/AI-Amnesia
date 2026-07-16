@@ -1,81 +1,93 @@
 # Healing AI Amnesia in Physics-Informed Neural Networks
 
-This workspace contains a Fisher-KPP Physics-Informed Neural Network (PINN) project that replicates and
-extends [Aberqi & Miloudi (arXiv:2601.11406v1)](2601.11406v1.pdf) to test a simple question: does
-preserving Adam optimizer state across fine-tuning phases improve convergence and final accuracy,
-compared to the paper's own protocol of resetting the optimizer at each retraining phase?
+Retraining a Physics-Informed Neural Network (PINN) in phases — an initial fit, then one or more
+fine-tuning passes — is standard practice, and it is just as standard to reinitialize the Adam optimizer
+at the start of every phase. That reset is a bug: it silently discards the optimizer's accumulated
+gradient-moment estimates, and each retraining pass makes the model *worse*, not better.
+
+**The fix is simple: don't reset it.** Preserving Adam's internal state across phases (and, for a final
+fine-tuning pass, switching to L-BFGS with its own state preserved) turns retraining from harmful to
+helpful. On the 1D Fisher-KPP reaction-diffusion equation this cuts final relative L2 error by **47.6%**
+and reverses the direction of every retraining phase.
 
 **Full write-up: [docs/Report.pdf](docs/Report.pdf).**
 
-**Headline results:**
-- **1D Fisher-KPP (replication + validated fix):** with the optimizer reset every phase (the paper's
-  protocol), relative L2 error *worsens* with each retraining pass, 5.01e-2 → 7.69e-2 → 8.70e-2.
-  Preserving Adam's state across phases instead (Phase 3 fine-tuned with L-BFGS) *improves* it every
-  phase, 5.82e-2 → 4.55e-2 → 4.56e-2 — a **47.6% reduction in final error**, flipping retraining from
-  harmful to helpful. The paper only recommends this fix (Section 5.2) without implementing or
-  quantifying it; this project does both.
-- **2D Fisher-KPP (original extension, not covered by the paper):** a 32-configuration architecture ×
-  schedule sweep found a 7×50 tanh network converges reliably (L2 = 0.023 ± 0.006, ~2.31 min), while a
-  wider 6×100 network diverges on every configuration tested (L2 ≈ 1.0) and is still ~83% slower.
+## The fix, in one picture
 
-The main implementation is the 1D Fisher-KPP experiment in [pinn.py](pinn.py). It generates synthetic training data, trains a PINN against the PDE residual plus initial and boundary conditions, compares the result with an exact traveling-wave solution and an explicit finite-difference baseline, and saves plots and checkpoints for later analysis.
+![Reset vs. preserved optimizer state, by retraining phase](figures_summary/1d_reset_vs_preserved.png)
 
-## What is in this workspace
+| | Phase 1 | Phase 2 | Phase 3 (final) |
+|---|---|---|---|
+| Optimizer reset each phase (the bug) | 5.01e-2 | 7.69e-2 | 8.70e-2 — *worse every phase* |
+| Optimizer state preserved (the fix) | 5.82e-2 | 4.55e-2 | 4.56e-2 — *better every phase* |
 
-### Main 1D Fisher-KPP project without preserving Adam state
+Resetting the optimizer isn't a neutral default — it actively degrades a PINN with every retraining
+pass. Preserving its state instead reduces final error by 47.6% and makes retraining worth doing.
 
-- [pinn.py](pinn.py): the most complete end-to-end script for the 1D Fisher-KPP experiment. It generates data, trains the PINN in three phases, benchmarks against FDM, and exports plots/results.
-- [pinn_early.py](pinn_early.py): an earlier version of the same experiment, kept as a simpler or legacy reference.
-- [pinn_early.ipynb](pinn_early.ipynb): notebook form of the early implementation.
-- [exact_solution.py](exact_solution.py): computes the analytical traveling-wave reference solution.
-- [fdm_solver.py](fdm_solver.py): explicit 1D finite-difference baseline solver.
-- [data_samples.npz](data_samples.npz): generated 1D training samples.
-- [fdm_traveling_wave.npz](fdm_traveling_wave.npz): saved 1D FDM output.
-- [pinn_training_history.png](pinn_training_history.png): training-history figure from the 1D run.
+This was validated on the 1D Fisher-KPP equation from [Aberqi & Miloudi
+(arXiv:2601.11406v1)](2601.11406v1.pdf), which documents the same reset-driven degradation and
+*recommends* saving/restoring optimizer state as a possible fix (Section 5.2) — without implementing or
+quantifying it. This project implements that fix and puts a real number on it.
 
-### 2D experiment track
+## Does it generalize? Extending to 2D
 
-- [2d_pinn/dataset_generation_2d.py](2d_pinn/dataset_generation_2d.py): generates 2D training data.
-- [fdm_solver_2d.py](fdm_solver_2d.py): explicit 2D finite-difference solver.
-- [2d_pinn/2d_pinn.ipynb](2d_pinn/2d_pinn.ipynb): 2D PINN notebook.
-- [data_samples_2d.npz](data_samples_2d.npz): generated 2D dataset.
-- [fdm_solution_2d.npz](fdm_solution_2d.npz): saved 2D FDM output.
-- [2d_pinn/l2_2d_tanh__7x50__cosine_exponential_lbfgs.png](2d_pinn/l2_2d_tanh__7x50__cosine_exponential_lbfgs.png): example 2D training result plot.
+The source paper only covers the 1D case. Extending the same PINN to 2D Fisher-KPP surfaced a second,
+independent finding: architecture choice can dominate everything else. A 32-configuration sweep over
+network shape and learning-rate schedule found:
 
-### Memory aware PINN preserving Adam state
+![7x50 converges reliably; 6x100 diverges on every configuration and costs more](figures_summary/2d_architecture_comparison.png)
 
-- [memoryAwarePINN/modiified_pinn.ipynb](memoryAwarePINN/modiified_pinn.ipynb): an alternate PINN notebook experiment.
-- [memoryAwarePINN/pinn_results_single.npz](memoryAwarePINN/pinn_results_single.npz): single-run result artifact.
-- [memoryAwarePINN/pinn_results_lbfgs.npz](memoryAwarePINN/pinn_results_lbfgs.npz): LBFGS result artifact.
-- [memoryAwarePINN/training_history_single_run.png](memoryAwarePINN/training_history_single_run.png): training-history plot.
-- [memoryAwarePINN/sweep_results_32.csv](memoryAwarePINN/sweep_results_32.csv): sweep output data.
+A wider-but-shallower 6×100 network diverges on **every one of the 16 schedules tested** (L2 ≈ 1.0,
+i.e. it collapses to a trivial solution) and is still ~83% slower to train than the narrower, deeper
+7×50 network that converges reliably (L2 = 0.023 ± 0.006). This is original work — the source paper
+never studies 2D — and it's an honest negative result: wider isn't better here, on any axis.
 
-## Project idea
+## Result plots
 
-The core experiment studies a PINN for the 1D Fisher-KPP equation,
+<table>
+<tr>
+<td><img src="results/1d/pinn_training_history.png" alt="1D training history, optimizer reset each phase" width="400"></td>
+<td><img src="results/1d/training_history_lbfgs.png" alt="1D training history, optimizer state preserved" width="400"></td>
+</tr>
+<tr>
+<td align="center"><sub>Optimizer reset each phase — L2 error rises across phases</sub></td>
+<td align="center"><sub>Optimizer state preserved — L2 error falls across phases</sub></td>
+</tr>
+</table>
 
-$$
-u_t = D u_{xx} + R u (1-u),
-$$
+![2D architecture collapse across the full 32-configuration sweep](figures_2d/graph_1_architecture_collapse.png)
 
-with a traveling-wave analytical solution used as reference. The model is trained on three types of synthetic points:
+## Repository layout
 
-- collocation points in the interior domain,
-- initial-condition points at $t=0$,
-- boundary-condition points at $x=0$ and $x=1$.
+```
+pinn.py, pinn_early.py(.ipynb)     1D experiments: pinn.py is the fixed (adaptive I-PINN) pipeline;
+                                    pinn_early is the paper-faithful reset-each-phase baseline
+exact_solution.py                  Analytical traveling-wave reference solution
+memoryAwarePINN/                   1D "optimizer state preserved" variant + its 32-config sweep
+2d_pinn/                           2D dataset generation + both 2D notebooks (with/without the fix)
+fdm_solver_2d.py                   Explicit 2D finite-difference baseline
+checkpoints/2d/                    Saved 2D model/optimizer checkpoints
+results/1d/, results/2d/           Training-history plots, single-run results, the 2D sweep CSV + its
+                                    32 per-configuration plots (results/2d/sweep/runs/)
+figures_2d/, figures_comparison/   Publication-quality figures generated by generate_2d_plots.py /
+                                    generate_comparison_plots.py
+figures_summary/                   The two headline bar charts above, from generate_summary_figures.py
+docs/                              Report.pdf (the full write-up) + report.tex source; docs/notes/ has
+                                    older planning notes superseded by the report
+2601.11406v1.pdf                   The source paper being validated/extended
+```
 
-The main hypothesis is that reloading Adam’s internal moments during retraining should preserve optimization progress better than restarting Adam from scratch.
+## Method
 
-## Main workflow
+Both 1D conditions use the same architecture: a fully-connected 7×50 tanh network, Xavier-normal weight
+init, mapping `(x, t) → u(x, t)`, trained on the composite PINN loss (interior PDE residual + initial +
+boundary conditions) with the paper's adaptive IC/BC weighting scheme. The two conditions differ only in
+what happens at each phase boundary:
 
-1. Generate synthetic training data.
-2. Train a 7-layer, 50-neuron tanh PINN on the 1D Fisher-KPP problem.
-3. Compare the learned solution against the exact traveling-wave solution.
-4. Benchmark with an explicit finite-difference method.
-5. Save the trained model, loss history, and plots.
+- **Reset** (`pinn_early.ipynb`, matches the paper): a fresh `torch.optim.Adam` every phase, discarding
+  all accumulated moment estimates.
+- **Preserved** (`memoryAwarePINN/modiified_pinn.ipynb`, the fix): model weights *and* optimizer state
+  carry over between phases; the final phase switches to L-BFGS with its own state preserved.
 
-The main 1D script runs this workflow in three phases:
-
-- Phase 1: initial training.
-- Phase 2: retraining with a fresh optimizer state.
-- Phase 3: additional retraining and reporting.
+The 2D extension (`2d_pinn/`) repeats this on the 2D Fisher-KPP equation, `u_t = D(u_xx + u_yy) + Ru(1-u)`,
+with a 32-run architecture × schedule sweep evaluated by final relative L2 error and training time.

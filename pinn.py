@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -356,7 +357,7 @@ class PINN_FisherKPP(nn.Module):
         print(f"  Loaded ← {filepath}")
 
     # ----------------------------------------------------------
-    def plot_training_history(self, save_path='pinn_training_history.png'):
+    def plot_training_history(self, save_path='results/1d/pinn_training_history.png'):
         """
         4-panel plot reproducing paper Figure 2 plus two diagnostic panels.
 
@@ -426,6 +427,7 @@ class PINN_FisherKPP(nn.Module):
         axes[1, 1].legend(fontsize=9)
         axes[1, 1].grid(alpha=0.3)
 
+        os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True)
         plt.tight_layout()
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
         plt.close()
@@ -676,7 +678,7 @@ if l2_fdm < l2_phase1:
     print("  for this 1D forward problem — consistent with paper findings.")
 
 # ---- Plot ----
-pinn.plot_training_history('pinn_training_history.png')
+pinn.plot_training_history('results/1d/pinn_training_history.png')
 
 # ---- Save ----
 np.savez('pinn_results.npz',
@@ -690,7 +692,7 @@ np.savez('pinn_results.npz',
 
 print(f"\n{SEP}")
 print("Outputs:")
-print("  pinn_training_history.png")
+print("  results/1d/pinn_training_history.png")
 print("  pinn_results.npz")
 print("  pinn_initial.pth  /  pinn_final.pth")
 print(SEP)

@@ -5,6 +5,8 @@ Generate 6 key comparison graphs:
 - 3 graphs for Modified PINN (1D, original protocol)
 """
 
+import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,9 +16,9 @@ import seaborn as sns
 plt.style.use('seaborn-v0_8-whitegrid')
 sns.set_palette("Set2")
 
-# Output directory
-output_dir = "/home/sparsh-bhartia/Documents/mlns/project/MLNS_Project/figures_comparison"
-import os
+# Paths (relative to this script's location, not the current working directory)
+repo_root = Path(__file__).resolve().parent
+output_dir = str(repo_root / "figures_comparison")
 os.makedirs(output_dir, exist_ok=True)
 
 print("=" * 80)
@@ -29,13 +31,13 @@ print("=" * 80)
 print("\n[Loading Data]")
 
 # Load 2D data
-csv_2d_path = "/home/sparsh-bhartia/Documents/mlns/project/MLNS_Project/sweep_results_2d_32.csv"
+csv_2d_path = repo_root / "results" / "2d" / "sweep" / "sweep_results_2d_32.csv"
 df_2d = pd.read_csv(csv_2d_path)
 print(f"✓ Loaded 2D sweep: {len(df_2d)} configurations")
 print(f"  Columns: {list(df_2d.columns)}")
 
 # Load Modified PINN data
-csv_mod_path = "/home/sparsh-bhartia/Documents/mlns/project/MLNS_Project/memoryAwarePINN/sweep_results_32.csv"
+csv_mod_path = repo_root / "memoryAwarePINN" / "sweep_results_32.csv"
 df_mod = pd.read_csv(csv_mod_path)
 print(f"✓ Loaded Modified PINN sweep: {len(df_mod)} configurations")
 print(f"  Columns: {list(df_mod.columns)}")

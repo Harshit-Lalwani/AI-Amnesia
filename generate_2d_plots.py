@@ -14,8 +14,9 @@ from pathlib import Path
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("husl")
 
-# Output directory
-output_dir = Path("/home/sparsh-bhartia/Documents/mlns/project/MLNS_Project/figures_2d")
+# Paths (relative to this script's location, not the current working directory)
+repo_root = Path(__file__).resolve().parent
+output_dir = repo_root / "figures_2d"
 output_dir.mkdir(exist_ok=True)
 
 print("=" * 80)
@@ -27,7 +28,7 @@ print("=" * 80)
 # ============================================================================
 print("\n[1/9] Loading sweep results...")
 try:
-    csv_path = Path("/home/sparsh-bhartia/Documents/mlns/project/MLNS_Project/sweep_results_2d_32.csv")
+    csv_path = repo_root / "results" / "2d" / "sweep" / "sweep_results_2d_32.csv"
     df = pd.read_csv(csv_path)
     print(f"✓ Loaded {len(df)} configurations from sweep_results_2d_32.csv")
 except Exception as e:
@@ -142,7 +143,7 @@ except Exception as e:
 print("\n[4/9] Creating Graph 3: Best Run Evolution...")
 try:
     # Try to load single best run results
-    npz_path = Path("/home/sparsh-bhartia/Documents/mlns/project/MLNS_Project/2d_pinn/pinn_results_single_2d.npz")
+    npz_path = repo_root / "results" / "2d" / "pinn_results_single_2d.npz"
     if npz_path.exists():
         data = np.load(npz_path)
         iters = data['iteration_history'] if 'iteration_history' in data else np.arange(len(data['loss_history']))
@@ -253,7 +254,7 @@ except Exception as e:
 # ============================================================================
 print("\n[6/9] Creating Graph 5: FDM vs PINN 2D Solution...")
 try:
-    fdm_path = Path("/home/sparsh-bhartia/Documents/mlns/project/MLNS_Project/2d_pinn/fdm_solution_2d.npz")
+    fdm_path = repo_root / "results" / "2d" / "fdm_solution_2d.npz"
     if fdm_path.exists():
         fdm_data = np.load(fdm_path)
         x_grid = fdm_data['x'].flatten()
