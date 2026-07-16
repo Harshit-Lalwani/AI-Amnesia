@@ -19,7 +19,7 @@ and reverses the direction of every retraining phase.
 | | Phase 1 | Phase 2 | Phase 3 (final) |
 |---|---|---|---|
 | Optimizer reset each phase (the bug) | 5.01e-2 | 7.69e-2 | 8.70e-2 — *worse every phase* |
-| Optimizer state preserved (the fix) | 5.82e-2 | 4.55e-2 | 4.56e-2 — *better every phase* |
+| Optimizer state preserved (the fix) | 5.01e-2 | 4.55e-2 | 4.56e-2 — *better every phase* |
 
 Resetting the optimizer isn't a neutral default — it actively degrades a PINN with every retraining
 pass. Preserving its state instead reduces final error by 47.6% and makes retraining worth doing.

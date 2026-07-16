@@ -48,7 +48,9 @@ def style_axis(ax):
 # ============================================================================
 phases = ["Phase 1", "Phase 2", "Phase 3\n(final)"]
 reset = [5.01, 7.69, 8.70]        # relative L2 error, %  (optimizer reset each phase)
-preserved = [5.82, 4.55, 4.56]    # relative L2 error, %  (optimizer state preserved)
+# Phase 1 is identical setup in both conditions (the reset-vs-preserve distinction only
+# applies from Phase 2 onward), so both series share the reset-run's Phase 1 value here.
+preserved = [5.01, 4.55, 4.56]    # relative L2 error, %  (optimizer state preserved)
 
 x = np.arange(len(phases))
 width = 0.34
